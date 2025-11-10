@@ -1,0 +1,22 @@
+# 가상환경 & 캐시
+.venv/
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.ipynb_checkpoints/
+
+# 실행/출력물
+runs/
+
+# 이미지(확장자 전부 패턴으로)
+*.jpg
+*.jpeg
+*.png
+*.webp
+
+# OS/툴 잡동사니 (선택)
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
