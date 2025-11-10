@@ -415,12 +415,32 @@ def get_qwen():
 @torch.inference_mode()
 def qwen_infer(image: Image.Image, prompt: str, gen_cfg: Dict[str, Any]) -> str:
     mdl, proc, _ = get_qwen()
+
+    # 1) 이미지 자리표시자 포함한 채팅 템플릿 구성
+    messages = [
+        {
+            "role": "user",
+            "content": [
+                {"type": "image"},                 # <-- 매우 중요: 이미지 토큰 자리표시자
+                {"type": "text", "text": prompt},  # 프롬프트 텍스트
+            ],
+        }
+    ]
+    # 2) 템플릿 적용 → 텍스트 시퀀스에 <image> 토큰이 포함됨
+    chat_text = proc.apply_chat_template(
+        messages,
+        add_generation_prompt=True,
+        tokenize=False
+    )
+
+    # 3) 텍스트 + 이미지 동시 전처리
     inputs = proc(
-        text=prompt,
+        text=[chat_text],
         images=[image],
         return_tensors="pt"
     ).to(mdl.device)
 
+    # 4) 생성 파라미터
     gen_kwargs = dict(
         max_new_tokens=gen_cfg.get("max_new_tokens", 256),
         do_sample=gen_cfg.get("do_sample", True),
@@ -431,6 +451,7 @@ def qwen_infer(image: Image.Image, prompt: str, gen_cfg: Dict[str, Any]) -> str:
         eos_token_id=mdl.generation_config.eos_token_id,
     )
 
+    # 5) 생성
     out_ids = mdl.generate(**inputs, **gen_kwargs)
     out_text = proc.batch_decode(out_ids, skip_special_tokens=True)[0].strip()
     return out_text
