@@ -3,356 +3,363 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Outfit → Segmentation → VLM 직업 예측 (MVP)</title>
+  <title>직업 예측 AI</title>
   <style>
-    :root {
-      --bg: #0b1020;
-      --panel: #11172b;
-      --muted: #9aa4b2;
-      --text: #e8eefc;
-      --accent: #4ade80;
-      --accent2: #22d3ee;
-      --border: rgba(255,255,255,0.08);
+    :root{ --bg:#0b1020;--panel:#11172b;--muted:#9aa4b2;--text:#e8eefc;
+      --accent:#4ade80;--accent2:#22d3ee;--border:rgba(255,255,255,.08) }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      background:radial-gradient(1400px 800px at 10% 0%,#0d1732 0,#0b1120 35%,#0b1020 100%);
+      color:var(--text);
+      font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif
     }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0; background: radial-gradient(1200px 800px at 10% 0%, #0d1732 0, #0b1120 35%, #0b1020 100%);
-      color: var(--text); font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    .wrap{max-width:900px;margin:28px auto;padding:0 16px}
+    .muted{color:var(--muted);font-size:13px}
+
+    /* Top header bar (wrap 내부로 이동) */
+    .topbar{
+      display:flex; align-items:center; justify-content:space-between; gap:18px;
+      padding:12px 16px;
+      background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,.02));
+      border:1px solid var(--border); border-radius:14px;
+      box-shadow:0 20px 60px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.03);
+      margin-bottom:14px;
     }
-    .wrap { max-width: 1100px; margin: 32px auto; padding: 0 16px; }
-    h1 { margin: 0 0 8px; font-size: 24px; }
-    .muted { color: var(--muted); font-size: 13px; }
-
-    .grid { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 16px; align-items: start; }
-    .card {
-      background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
-      border: 1px solid var(--border);
-      border-radius: 14px; padding: 14px;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.03);
+    .brand{display:flex; align-items:center}
+    .brand img{height:40px; width:auto; display:block}
+    .titleblock{display:flex; flex-direction:column; gap:4px; text-align:right}
+    .titleblock .title{font-size:22px; font-weight:900}
+    .titleblock .subtitle{font-size:13px; color:var(--muted)}
+    @media (max-width:640px){
+      .topbar{flex-direction:column; align-items:flex-start; gap:8px}
+      .titleblock{text-align:left}
     }
-    .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-    .row > * { margin: 6px 0; }
-    .btn {
-      background: linear-gradient(180deg, #17213f, #121a33);
-      border: 1px solid var(--border); color: #eaf2ff;
-      padding: 8px 12px; border-radius: 10px; cursor: pointer; font-weight: 600;
+
+    .card{
+      background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,.02));
+      border:1px solid var(--border);border-radius:14px;padding:14px;
+      box-shadow:0 20px 60px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.03)
     }
-    .btn:hover { filter: brightness(1.05); }
-    .btn:disabled { opacity: .5; cursor: not-allowed; }
-    .okdot { width: 10px; height: 10px; border-radius: 999px; display: inline-block; margin-right: 6px; background: #ef4444; box-shadow: 0 0 10px #ef4444aa; }
-    #camStatus { font-size: 13px; color: var(--muted); }
 
-    .mediaShell { position: relative; border-radius: 12px; overflow: hidden; background: #0b142a; border: 1px solid var(--border); }
-    video, canvas { display: block; width: 100%; height: auto; }
-    #overlay { position: absolute; left: 0; top: 0; }
+    .mediaShell{position:relative;border-radius:12px;overflow:hidden;background:#0b142a;border:1px solid var(--border)}
+    video,canvas{display:block;width:100%;height:auto}
+    #overlay{position:absolute;left:0;top:0}
+    .mediaShell video,.mediaShell canvas{transform:scaleX(-1);transform-origin:center}
 
-    .kbd { background: #0d1530; border: 1px solid var(--border); padding: 4px 8px; border-radius: 6px; font-size: 12px; color: var(--muted); }
+    .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .okdot{width:10px;height:10px;border-radius:999px;display:inline-block;margin-right:6px;background:#ef4444;box-shadow:0 0 10px #ef4444aa}
 
-    .progress { width: 100%; height: 8px; border-radius: 999px; background: rgba(255,255,255,0.08); overflow: hidden; }
-    .bar { height: 100%; width: 0%; background: linear-gradient(90deg, var(--accent), var(--accent2)); transition: width .25s ease; }
-
-    .chip { background: rgba(255,255,255,0.06); border: 1px solid var(--border); color: #dbe7ff; padding: 6px 10px; border-radius: 999px; }
-    .stack { display: grid; gap: 10px; }
-
-    .checker {
-      background:
-      linear-gradient(45deg, #0000 46%, #ffffff14 47% 53%, #0000 54%),
-      linear-gradient(-45deg, #0000 46%, #ffffff14 47% 53%, #0000 54%);
-      background-size: 18px 18px;
+    .btn{
+      background:linear-gradient(180deg,#1e2a52,#142141);
+      border:1px solid var(--border);color:#eaf2ff;cursor:pointer;font-weight:800;
+      border-radius:12px;transition:transform .06s ease, filter .12s ease
     }
-    img.result {
-      width: 100%; border-radius: 10px; border: 1px solid var(--border); background: #0b142a; display: block;
-      object-fit: contain;
-    }
-    a { color: #a3d4ff; text-decoration: underline; }
-    .probRow { width: 100%; }
-    .probRail { height: 8px; width: 100%; border-radius: 999px; background: rgba(255,255,255,0.10); overflow: hidden; }
-    .probFill { height: 100%; background: rgba(255,255,255,0.38); }
-    .probFill.top { background: linear-gradient(90deg, var(--accent), var(--accent2)); }
-    .meta { font-size: 12px; color: var(--muted); }
+    .btn:hover{filter:brightness(1.06)}
+    .btn:active{transform:translateY(1px)}
+    .btn[disabled]{opacity:.6;cursor:not-allowed}
+    .btn-lg{width:100%;padding:18px 20px;font-size:18px;border-radius:14px}
+    .btn-sm{padding:8px 12px;font-size:14px;border-radius:10px}
+
+    .progress{width:100%;height:10px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden}
+    .bar{height:100%;width:0%;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width .25s ease}
+
+    .stack{display:grid;gap:12px}
+    .meta{font-size:12px;color:var(--muted)}
+
+    .probRow{width:100%}
+    .probRail{height:8px;width:100%;border-radius:999px;background:rgba(255,255,255,.10);overflow:hidden}
+    .probFill{height:100%;background:rgba(255,255,255,.38)}
+    .probFill.top{background:linear-gradient(90deg,var(--accent),var(--accent2))}
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h1>Outfit → Segmentation → VLM 직업 예측</h1>
-    <div class="muted">웹캠 또는 파일 업로드로 의상을 분리(누끼)하고, VLM(Qwen2-VL)로 직업군을 자동 추정합니다.</div>
+    <!-- 동일 폭 헤더 -->
+    <div class="topbar">
+      <div class="brand">
+        <img src="/assets/logo.png" alt="회사 로고">
+      </div>
+      <div class="titleblock">
+        <div class="title">직업 예측 AI</div>
+        <div class="subtitle">사용자의 의상과 액세서리를 보고 직업군을 유추합니다.</div>
+      </div>
+    </div>
 
-    <div class="grid" style="margin-top:16px">
-      <!-- 좌: 입력/웹캠 -->
-      <div class="card">
-        <div class="row" style="justify-content:space-between">
-          <div class="row">
-            <span class="okdot" id="okDot"></span>
-            <span id="camStatus">카메라 대기</span>
-          </div>
-          <div class="meta"><span id="liveFPS">—</span></div>
+    <!-- 웹캠 카드 -->
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <div class="row">
+          <span class="okdot" id="okDot"></span>
+          <span id="camStatus" class="meta">카메라 대기</span>
         </div>
+        <div class="meta"><span id="liveFPS">—</span></div>
+      </div>
 
-        <div class="mediaShell" style="margin-top:8px">
-          <video id="video" autoplay playsinline muted></video>
-          <canvas id="overlay"></canvas>
-        </div>
+      <div class="mediaShell" style="margin-top:10px">
+        <video id="video" autoplay playsinline muted></video>
+        <canvas id="overlay"></canvas>
+      </div>
 
-        <div class="row" style="margin-top:10px">
-          <button class="btn" id="btnStart">웹캠 시작</button>
-          <button class="btn" id="btnStop">웹캠 중지</button>
-          <button class="btn" id="btnSnap">현재 프레임 → 세그+VLM</button>
-          <span class="kbd">또는 이미지 업로드 →</span>
-          <input type="file" id="fileInput" accept="image/png,image/jpeg,image/webp" />
+      <div class="row" style="margin-top:10px;justify-content:space-between">
+        <div class="row">
+          <button class="btn btn-sm" id="btnStart">웹캠 시작</button>
+          <button class="btn btn-sm" id="btnStop">웹캠 중지</button>
         </div>
       </div>
 
-      <!-- 우: 결과 -->
-      <div class="card stack">
-        <div>
-          <div class="row" style="justify-content:space-between; align-items: end;">
-            <div>
-              <div class="meta">예측 직업</div>
-              <div id="predJob" style="font-weight:800;font-size:20px;line-height:1.2">—</div>
-            </div>
-            <div style="min-width:180px">
-              <div class="meta" style="margin-bottom:6px" id="confText">신뢰도 —</div>
-              <div class="progress"><div class="bar" id="confBar"></div></div>
-            </div>
-          </div>
-          <div class="meta" id="predReason" style="margin-top:6px">—</div>
-        </div>
+      <div style="margin-top:12px">
+        <button class="btn btn-lg" id="btnInfer">추론하기</button>
+      </div>
+    </div>
 
+    <!-- 결과 카드 -->
+    <div class="card stack" style="margin-top:16px">
+      <div class="row" style="justify-content:space-between;align-items:end">
         <div>
-          <div class="meta" style="margin-bottom:6px">VLM 근거</div>
-          <div id="evidenceChips" class="row"></div>
+          <div class="meta">예측 직업</div>
+          <div id="predJob" style="font-weight:900;font-size:22px;line-height:1.2">—</div>
         </div>
+        <div style="min-width:210px">
+          <div class="meta" style="margin-bottom:6px" id="confText">—</div>
+          <div class="progress"><div class="bar" id="confBar"></div></div>
+        </div>
+      </div>
 
-        <div>
-          <div class="meta" style="margin-bottom:6px">직업 확률</div>
-          <div id="probsList" class="stack"></div>
-        </div>
-
-        <div>
-          <div class="meta" style="margin-bottom:6px">세그 결과 (배경 투명)</div>
-          <div class="checker" style="border-radius:12px; padding:8px; border:1px solid var(--border);">
-            <img id="cutoutImg" class="result" alt="cutout result"/>
-          </div>
-          <div id="cutoutLink" class="meta" style="margin-top:6px"></div>
-          <div id="detectInfo" class="meta" style="margin-top:2px"></div>
-        </div>
-
-        <div>
-          <div class="meta" style="margin-bottom:6px">검출 오버레이</div>
-          <img id="overlayImg" class="result" alt="overlay" />
-        </div>
+      <div>
+        <div class="meta" style="margin-bottom:6px"></div>
+        <div id="probsList" class="stack"></div>
       </div>
     </div>
   </div>
-
   <script>
-    // ====== DOM ======
+    // ===== DOM =====
     const video = document.getElementById('video');
     const overlay = document.getElementById('overlay');
     const ctx = overlay.getContext('2d');
     const btnStart = document.getElementById('btnStart');
     const btnStop  = document.getElementById('btnStop');
-    const btnSnap  = document.getElementById('btnSnap');
-    const fileInput = document.getElementById('fileInput');
-    const camStatus = document.getElementById('camStatus');
+    const btnInfer = document.getElementById('btnInfer');
+
     const okDot = document.getElementById('okDot');
+    const camStatus = document.getElementById('camStatus');
     const liveFPS = document.getElementById('liveFPS');
+
     const predJob = document.getElementById('predJob');
-    const predReason = document.getElementById('predReason');
     const confBar = document.getElementById('confBar');
     const confText = document.getElementById('confText');
-    const evidenceChips = document.getElementById('evidenceChips');
     const probsList = document.getElementById('probsList');
-    const cutoutImg = document.getElementById('cutoutImg');
-    const cutoutLink = document.getElementById('cutoutLink');
-    const detectInfo = document.getElementById('detectInfo');
-    const overlayImg = document.getElementById('overlayImg');
 
-    // ====== API BASE ======
+    // ===== API =====
     const BASE = location.origin;
-    const API_SEG_FILE = BASE + "/api/v1/segment/file";
-    const API_SEG_JSON = BASE + "/api/v1/segment/json";
-    const API_VLM_JSON = BASE + "/api/v1/vlm/json";
+    const API_SEG_JSON   = BASE + "/api/v1/segment/json";     // 폴백용
+    const API_VLM_JSON   = BASE + "/api/v1/vlm/json";         // 폴백용
+    const API_PRED_INLINE= BASE + "/api/v1/predict/inline";   // 신규(권장)
 
-    // ====== State ======
-    let stream = null, running = false;
-    let lastTS = performance.now(), frames = 0;
+    // ===== State =====
+    let stream = null, running = false, lastTS = performance.now(), frames = 0;
+    const runState = { running:false, aborter:null };
 
-    // ====== Helpers ======
-    function setStatus(text, ok=true) {
-      camStatus.textContent = text;
-      okDot.style.background = ok ? '#10b981' : '#ef4444';
-      okDot.style.boxShadow  = ok ? '0 0 12px #10b981aa' : '0 0 12px #ef4444aa';
+    // ===== Helpers =====
+    function setStatus(text, ok=true){
+      camStatus.textContent=text;
+      okDot.style.background=ok?'#10b981':'#ef4444';
+      okDot.style.boxShadow=ok?'0 0 12px #10b981aa':'0 0 12px #ef4444aa';
     }
-    function chip(text) {
-      const s = document.createElement('span');
-      s.className = 'chip';
-      s.textContent = text;
-      return s;
-    }
-    function percent(x) { return Math.max(0, Math.min(100, Math.round(x*100))); }
-    function syncOverlaySize() {
-      if (!video.videoWidth) return;
+    function percent(x){ return Math.max(0, Math.min(100, Math.round(x*100))); }
+    function syncOverlaySize(){
+      if(!video.videoWidth) return;
       overlay.width  = video.videoWidth;
       overlay.height = video.videoHeight;
     }
-    function updateFPS() {
+    function updateFPS(){
       frames++;
-      const now = performance.now();
-      if (now - lastTS >= 1000) { liveFPS.textContent = `${frames} FPS`; frames = 0; lastTS = now; }
+      const now=performance.now();
+      if(now-lastTS>=1000){ liveFPS.textContent=`${frames} FPS`; frames=0; lastTS=now; }
     }
-    function renderProbabilities(distArr) {
-      probsList.innerHTML = '';
-      const maxProb = Math.max(...distArr.map(d => d.prob));
-      distArr.forEach(({label, prob}) => {
+
+    function renderProbabilities(distArr){
+      probsList.innerHTML='';
+      if(!distArr.length) return;
+      const mx=Math.max(...distArr.map(d=>d.prob));
+      distArr.forEach(({label,prob})=>{
         const pct = percent(prob);
-        const row = document.createElement('div');
-        row.className = 'probRow';
+        const row=document.createElement('div'); row.className='probRow';
         row.innerHTML = `
-          <div class="row" style="justify-content:space-between; font-size:12px; color:#cdd7ee; margin-bottom:4px">
+          <div class="row" style="justify-content:space-between;font-size:12px;color:#cdd7ee;margin-bottom:4px">
             <span>${label}</span><span>${pct}%</span>
           </div>
-          <div class="probRail"><div class="probFill ${prob===maxProb ? 'top' : ''}" style="width:${pct}%"></div></div>
-        `;
+          <div class="probRail"><div class="probFill ${prob===mx?'top':''}" style="width:${pct}%"></div></div>`;
         probsList.appendChild(row);
       });
     }
 
-    // ====== Camera ======
-    async function startCamera() {
-      if (running) return;
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video:{ facingMode:'user', width:{ideal:1280}, height:{ideal:720} }, audio:false
-        });
-        video.srcObject = stream;
-        await video.play();
-        running = true;
-        syncOverlaySize();
-        setStatus('카메라 실행중');
-      } catch (e) {
-        setStatus('카메라 접근 거부/오류', false);
-        console.error(e);
-      }
+    function resetResults(){
+      predJob.textContent = '—';
+      confBar.style.width = '0%';
+      confText.textContent = '—';
+      probsList.innerHTML = '';
+      ctx.clearRect(0,0,overlay.width,overlay.height);
     }
-    function stopCamera() {
-      running = false;
-      if (stream) { stream.getTracks().forEach(t=>t.stop()); stream = null; }
-      ctx.clearRect(0,0,overlay.width, overlay.height);
+
+    // ----- robust prob/conf parser & label normalizer -----
+    function parseProb(x){
+      if (typeof x === 'string'){
+        const s = x.trim();
+        if (s.endsWith('%')) {
+          const v = parseFloat(s.slice(0,-1));
+          return Number.isFinite(v) ? Math.min(Math.max(v/100,0),1) : 0;
+        }
+        const v = parseFloat(s);
+        if (!Number.isFinite(v)) return 0;
+        return v > 1 && v <= 100 ? v/100 : Math.min(Math.max(v,0),1);
+      }
+      const n = Number(x);
+      if (!Number.isFinite(n)) return 0;
+      return n > 1 && n <= 100 ? n/100 : Math.min(Math.max(n,0),1);
+    }
+    const norm = s => (s||'').toString().toLowerCase().replace(/\s+/g,'').replaceAll('/','');
+
+    // ===== Render VLM =====
+    function renderVLM(v){
+      const r = (v && v.result) ? v.result : {};
+      const rawCand = Array.isArray(r.candidates) ? r.candidates : [];
+
+      const cand = rawCand
+        .map(d => ({ label: d.job || '기타', prob: parseProb(d.prob) }))
+        .sort((a,b)=> b.prob - a.prob);
+
+      const topJob = (r.top_prediction && r.top_prediction.job) ? r.top_prediction.job
+                    : (cand[0]?.label ?? '분류 실패');
+
+      // confidence 우선순위: top.confidence → 같은 레이블 candidate → 후보 최대값
+      let conf = (r.top_prediction && 'confidence' in r.top_prediction)
+                  ? parseProb(r.top_prediction.confidence) : 0;
+
+      if (!conf && cand.length){
+        const match = cand.find(c => norm(c.label) === norm(topJob));
+        conf = match ? match.prob : cand[0].prob;
+      }
+
+      predJob.textContent = topJob;
+      confBar.style.width = `${percent(conf)}%`;
+      confText.textContent = `${percent(conf)}%`;
+
+      renderProbabilities(cand);
+    }
+
+    // ===== Camera =====
+    async function startCamera(){
+      if(running) return;
+      try{
+        stream = await navigator.mediaDevices.getUserMedia({
+          video:{facingMode:'user',width:{ideal:1280},height:{ideal:720}},audio:false
+        });
+        video.srcObject = stream; await video.play();
+        running = true; syncOverlaySize(); setStatus('카메라 실행중');
+      }catch(e){ setStatus('카메라 접근 거부/오류', false); console.error(e); }
+    }
+    function stopCamera(){
+      running=false;
+      if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
+      ctx.clearRect(0,0,overlay.width,overlay.height);
       setStatus('카메라 중지됨', false);
     }
 
-    // ====== Segment + VLM pipeline ======
-    async function callVLM(cutoutUrl) {
-      try {
-        predJob.textContent = "직업 분석중…";
-        confBar.style.width = "0%";
-        confText.textContent = "신뢰도 —";
-        evidenceChips.innerHTML = "";
-
-        const res = await fetch(API_VLM_JSON, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ cutout_url: cutoutUrl })
-        });
-        if (!res.ok) throw new Error(`VLM ${res.status}`);
-        const v = await res.json();
-        const r = (v && v.result) ? v.result : {};
-        const top = r.top_prediction || {};
-        const dist = Array.isArray(r.candidates) ? r.candidates : [];
-
-        const job = top.job || "분류 실패";
-        const conf = Math.max(0, Math.min(1, Number(top.confidence || 0)));
-        predJob.textContent = job;
-        confBar.style.width = `${Math.round(conf * 100)}%`;
-        confText.textContent = `신뢰도 ${Math.round(conf * 100)}%`;
-
-        const ev = Array.isArray(r.evidence) ? r.evidence : [];
-        evidenceChips.innerHTML = "";
-        if (ev.length === 0) evidenceChips.appendChild(chip("단서 없음"));
-        else ev.slice(0,8).forEach(s => evidenceChips.appendChild(chip(String(s))));
-        predReason.textContent = ev.length ? `주요 단서: ${ev.slice(0,3).join(" · ")}` : "명확한 단서가 부족합니다.";
-
-        const distNormalized = dist.map(d => ({
-          label: d.job || "기타",
-          prob: Math.max(0, Math.min(1, Number(d.prob || 0)))
-        }));
-        if (distNormalized.length) renderProbabilities(distNormalized);
-      } catch (e) {
-        console.error(e);
-        predJob.textContent = "VLM 호출 실패";
-        predReason.textContent = "서버 로그 확인 필요";
-      }
-    }
-
-    function showSegmentResult(seg) {
-      const fullCut = seg.url.startsWith('http') ? seg.url : (BASE + seg.url);
-      cutoutImg.src = fullCut;
-      cutoutLink.innerHTML = `<a href="${fullCut}" target="_blank">다운로드: ${seg.filename || fullCut}</a>`;
-      detectInfo.textContent = `detections: ${seg.detections}`;
-      if (seg.overlay_url) {
-        const fullOv = seg.overlay_url.startsWith('http') ? seg.overlay_url : (BASE + seg.overlay_url);
-        overlayImg.src = fullOv;
-      }
-      // 자동 VLM
-      callVLM(seg.url);
-    }
-
-    async function sendFile(file) {
-      const fd = new FormData();
-      fd.append("file", file);
-      const res = await fetch(API_SEG_FILE, { method: "POST", body: fd });
-      if (!res.ok) throw new Error(`SEG ${res.status}`);
-      const j = await res.json();
-      showSegmentResult(j);
-    }
-
-    async function sendFrameJSON() {
-      if (!video.videoWidth) return;
-      // 현재 프레임을 캡처 → dataURL
-      const c = document.createElement('canvas');
-      c.width = video.videoWidth; c.height = video.videoHeight;
-      const cctx = c.getContext('2d');
-      // 전면 카메라 미러링 고려 (이미지를 그대로 쓰고 싶으면 아래 두 줄 주석)
-      cctx.translate(c.width, 0); cctx.scale(-1, 1);
-      cctx.drawImage(video, 0, 0, c.width, c.height);
-      const dataURL = c.toDataURL('image/png', 0.92);
-
-      const res = await fetch(API_SEG_JSON, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image: dataURL })
+    // ===== Pipeline =====
+    async function callPredictInline(dataURL, signal){
+      // 권장 경로: 한 번에 세그→VLM
+      const res = await fetch(API_PRED_INLINE, {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({image:dataURL}),
+        signal
       });
-      if (!res.ok) throw new Error(`SEG ${res.status}`);
-      const j = await res.json();
-      showSegmentResult(j);
+      if (res.status === 404) throw new Error("INLINE_404"); // 서버 구버전일 수 있음
+      if (!res.ok) throw new Error(`INLINE ${res.status}`);
+      return res.json();
     }
 
-    // ====== Events ======
+    async function callLegacyTwoStep(dataURL, signal){
+      // 폴백: 세그먼트 → VLM (기존 저장형)
+      const segRes=await fetch(API_SEG_JSON,{
+        method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({image:dataURL}), signal
+      });
+      if(!segRes.ok) throw new Error(`SEG ${segRes.status}`);
+      const seg=await segRes.json();
+
+      const vlmRes=await fetch(API_VLM_JSON,{
+        method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({cutout_url:seg.url}), signal
+      });
+      if(!vlmRes.ok) throw new Error(`VLM ${vlmRes.status}`);
+      return vlmRes.json();
+    }
+
+    async function sendFrameJSON(){
+      // 중복 실행 시 이전 요청 취소
+      if (runState.running && runState.aborter) {
+        try { runState.aborter.abort(); } catch(e) {}
+      }
+      resetResults();
+      btnInfer.disabled = true;
+      btnInfer.textContent = '분석 중…';
+      runState.aborter = new AbortController();
+      runState.running = true;
+
+      try{
+        if(!video.videoWidth){ throw new Error("no_frame"); }
+
+        // 캡처(미러)
+        const c=document.createElement('canvas');
+        c.width=video.videoWidth; c.height=video.videoHeight;
+        const cctx=c.getContext('2d');
+        cctx.translate(c.width,0); cctx.scale(-1,1);
+        cctx.drawImage(video,0,0,c.width,c.height);
+        const dataURL=c.toDataURL('image/png',0.92);
+
+        let j;
+        try{
+          // 1) 신규 경로 시도
+          j = await callPredictInline(dataURL, runState.aborter.signal);
+        }catch(err){
+          if (err?.message === "INLINE_404"){
+            // 2) 구버전 서버면 폴백
+            j = await callLegacyTwoStep(dataURL, runState.aborter.signal);
+          }else{
+            throw err;
+          }
+        }
+        renderVLM(j);
+
+      }catch(err){
+        if (err?.name !== 'AbortError') {
+          console.error(err);
+          predJob.textContent = '오류 발생';
+        }
+      }finally{
+        runState.running = false;
+        btnInfer.disabled = false;
+        btnInfer.textContent = '추론하기';
+      }
+    }
+
+    // ===== Events =====
     btnStart.addEventListener('click', startCamera);
     btnStop.addEventListener('click', stopCamera);
-    btnSnap.addEventListener('click', sendFrameJSON);
-    fileInput.addEventListener('change', (e) => {
-      const f = e.target.files && e.target.files[0];
-      if (f) sendFile(f).catch(console.error);
-      fileInput.value = "";
-    });
+    btnInfer.addEventListener('click', sendFrameJSON);
     video.addEventListener('loadedmetadata', syncOverlaySize);
     window.addEventListener('resize', syncOverlaySize);
 
-    // ====== Auto-init if camera available ======
-    (async () => {
-      try {
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        if (devices.some(d => d.kind === 'videoinput')) startCamera();
-      } catch(e) {}
-    })();
+    // 자동 카메라 시작(가능 시)
+    (async()=>{ try{
+      const dev=await navigator.mediaDevices.enumerateDevices();
+      if(dev.some(d=>d.kind==='videoinput')) startCamera();
+    }catch(e){} })();
 
-    // ====== Simple overlay loop (FPS only) ======
-    (function rafLoop(){
-      if (running) updateFPS();
-      requestAnimationFrame(rafLoop);
-    })();
+    // 경량 FPS 루프
+    (function rafLoop(){ if(running) updateFPS(); requestAnimationFrame(rafLoop); })();
   </script>
 </body>
 </html>

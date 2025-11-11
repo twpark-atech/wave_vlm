@@ -2,7 +2,7 @@ device: "cuda"
 max_side: 896
 qwen_model: "Qwen/Qwen2-VL-7B-Instruct"
 gen:
-  max_new_tokens: 256
+  max_new_tokens: 1024
   do_sample: true
   temperature: 0.7
   top_p: 0.9
