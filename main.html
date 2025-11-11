@@ -1,491 +1,473 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>직업 예측 AI</title>
-  <style>
-    :root{ --bg:#0b1020;--panel:#11172b;--muted:#9aa4b2;--text:#e8eefc;
-      --accent:#4ade80;--accent2:#22d3ee;--border:rgba(255,255,255,.08) }
-    *{box-sizing:border-box}
-    body{
-      margin:0;
-      background:radial-gradient(1400px 800px at 10% 0%,#0d1732 0,#0b1120 35%,#0b1020 100%);
-      color:var(--text);
-      font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif
-    }
-    .wrap{max-width:900px;margin:28px auto;padding:0 16px}
-    .muted{color:var(--muted);font-size:13px}
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>직업 예측 AI</title>
 
-    /* Top header bar */
-    .topbar{
-      display:flex; align-items:center; justify-content:space-between; gap:18px;
-      padding:12px 16px;
-      background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,.02));
-      border:1px solid var(--border); border-radius:14px;
-      box-shadow:0 20px 60px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.03);
-      margin-bottom:14px;
-    }
-    .brand{display:flex; align-items:center}
-    .brand img{height:40px; width:auto; display:block}
-    .titleblock{display:flex; flex-direction:column; gap:4px; text-align:right}
-    .titleblock .title{font-size:22px; font-weight:900}
-    .titleblock .subtitle{font-size:13px; color:var(--muted)}
-    @media (max-width:640px){
-      .topbar{flex-direction:column; align-items:flex-start; gap:8px}
-      .titleblock{text-align:left}
-    }
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;800;900&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
 
-    .card{
-      background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,.02));
-      border:1px solid var(--border);border-radius:14px;padding:14px;
-      box-shadow:0 20px 60px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.03)
-    }
+<style>
+  :root{
+    --panel: rgba(255,255,255,0.05);
+    --panel-border: rgba(255,255,255,0.12);
+    --text:#e8eefc; --muted:#9fb0c9;
+    --accent:#22d3ee; --accent2:#4ade80;
+    --surface:#0b1220;
 
-    .mediaShell{position:relative;border-radius:12px;overflow:hidden;background:#0b142a;border:1px solid var(--border)}
-    video,canvas{display:block;width:100%;height:auto}
-    #overlay{position:absolute;left:0;top:0}
-    .mediaShell video,.mediaShell canvas{transform:scaleX(-1);transform-origin:center}
+    --c1:#22d3ee; /* Top1 & 중앙 % */
+    --c2:#4ade80; /* Top2 */
+    --c3:#94a3b8; /* Top3 */
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; min-height:100vh;
+    font-family:'Noto Sans KR',ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    background:radial-gradient(1200px 600px at 20% 0%, #0f172a 0%, #0d1426 35%, #0a1224 60%, #0a1428 100%);
+    color:var(--text);
+  }
+  .glass{
+    background:var(--panel);
+    border:1px solid var(--panel-border);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 12px 40px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.05);
+    border-radius:18px;
+  }
 
-    .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-    .okdot{width:10px;height:10px;border-radius:999px;display:inline-block;margin-right:6px;background:#ef4444;box-shadow:0 0 10px #ef4444aa}
+  /* ===== 헤더 ===== */
+  .heroTitle{
+    font-size: 36px;
+    line-height: 1.05;
+    font-weight: 900;
+    letter-spacing:.2px;
+    text-align:right;
+  }
+  .heroSub{
+    font-size:16px;
+    color: var(--muted);
+    font-weight: 600;
+    text-align:right;
+  }
 
-    .btn{
-      background:linear-gradient(180deg,#1e2a52,#142141);
-      border:1px solid var(--border);color:#eaf2ff;cursor:pointer;font-weight:800;
-      border-radius:12px;transition:transform .06s ease, filter .12s ease
-    }
-    .btn:hover{filter:brightness(1.06)}
-    .btn:active{transform:translateY(1px)}
-    .btn[disabled]{opacity:.6;cursor:not-allowed}
-    .btn-lg{width:100%;padding:18px 20px;font-size:18px;border-radius:14px}
-    .btn-sm{padding:8px 12px;font-size:14px;border-radius:10px}
+  /* ===== 버튼 ===== */
+  .btn{
+    font-weight: 900;
+    border:1px solid var(--panel-border);
+    border-radius:14px;
+    transition: transform .06s ease, filter .12s ease;
+  }
+  .btn:hover{ filter:brightness(1.06) }
+  .btn:active{ transform:translateY(1px) }
+  .btn[disabled]{ opacity:.6; cursor:not-allowed }
+  .btn-lg{ padding:14px 22px; font-size:18px }
+  .btn-xl{ padding:16px 26px; font-size:19px }
+  .btn-primary{ background:linear-gradient(135deg,var(--accent) 0%,var(--accent2) 100%); color:#ffffff }
+  .btn-secondary{ background:linear-gradient(135deg,#8b5cf6 0%,#06b6d4 100%) }
 
-    .progress{width:100%;height:10px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden}
-    .bar{height:100%;width:0%;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width .25s ease}
+  /* ===== 카메라/세그 ===== */
+  .mediaShell{position:relative;border-radius:16px;overflow:hidden;border:1px solid var(--panel-border)}
+  video,canvas,img{display:block;width:100%;height:auto}
+  #overlay{position:absolute;left:0;top:0}
+  .mediaShell video,.mediaShell canvas{transform:scaleX(-1);transform-origin:center}
 
-    .stack{display:grid;gap:12px}
-    .meta{font-size:12px;color:var(--muted)}
+  /* ===== 섹션 타이틀 ===== */
+  .sectionTitle{
+    color:#ffffff;
+    font-size:24px;
+    font-weight:900;
+    letter-spacing:.2px;
+  }
 
-    /* Top-3 layout */
-    .top1{font-weight:900;font-size:22px;line-height:1.2}
-    .chips{display:flex; gap:8px; flex-wrap:wrap}
-    .chip{
-      background:rgba(255,255,255,.06); border:1px solid var(--border);
-      padding:6px 10px; border-radius:999px; font-size:12px; color:#cdd7ee
-    }
-    .chip b{color:#e8eefc}
+  /* ===== 내부 본문 20px ===== */
+  .body20{ font-size:20px; line-height:1.6 }
 
-    /* Donut */
-    .donutWrap{display:flex; gap:16px; align-items:center; flex-wrap:wrap}
-    #donut{width:140px; height:140px}
-    .legend{display:grid; gap:6px}
-    .legend .lg{display:flex; align-items:center; gap:8px; font-size:12px; color:#cdd7ee}
-    .legend .dot{width:10px;height:10px;border-radius:50%}
+  .top-list{display:grid;gap:12px}
+  .top1{ font-size:22px; font-weight:900 }
+  .top1 .pct{ font-weight:900; color:var(--c1) }
+  .chip{
+    display:inline-flex; gap:10px; align-items:center;
+    padding:10px 14px; border:1px solid var(--panel-border);
+    border-radius:999px; background:rgba(255,255,255,.06);
+    font-weight:800; font-size:20px;
+  }
 
-    /* Loader overlay */
-    #loaderOverlay{
-      position:fixed; inset:0; z-index:999999; display:none;
-      align-items:center; justify-content:center;
-      background: rgba(8,12,24,.6); backdrop-filter: blur(2px);
-    }
-    #loaderOverlay .loaderBox{
-      min-width:220px; padding:20px 22px; border-radius:14px;
-      background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.04));
-      border: 1px solid rgba(255,255,255,.12);
-      box-shadow: 0 18px 80px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.05);
-      text-align:center; color:#e8eefc;
-    }
-    #loaderOverlay .spinner{
-      width:42px; height:42px; margin:0 auto 12px; border-radius:50%;
-      border:4px solid rgba(255,255,255,.2); border-top-color:#4ade80;
-      animation: rot .9s linear infinite;
-    }
-    @keyframes rot{ to{ transform: rotate(360deg);} }
-    #loaderOverlay .loaderText{ font-weight:800; letter-spacing:.2px; }
-    #loaderOverlay .loaderSub{ margin-top:4px; font-size:12px; color:#9aa4b2; }
-  </style>
+  .donutWrap{display:grid;place-items:center}
+  canvas#donut{width:min(340px, 70vw); height:auto; display:none}
+
+  /* ===== 세그 이미지: contain + 중앙정렬 ===== */
+  .segFrame{
+    border:1px solid var(--panel-border);
+    border-radius:16px; overflow:hidden;
+    background:var(--surface);
+    display:flex; align-items:center; justify-content:center;
+    min-height: 280px;
+  }
+  .segImg{
+    width:100%;
+    height:100%;
+    object-fit: contain;
+    object-position: center;
+    opacity:0; transition:opacity .18s ease;
+    background:var(--surface);
+  }
+
+  .card-pad{ padding: 22px 24px }
+
+  /* 스피너 */
+  @keyframes rot { to { transform: rotate(360deg); } }
+</style>
 </head>
-<body>
-  <div class="wrap">
-    <!-- 상단 헤더 -->
-    <div class="topbar">
-      <div class="brand">
-        <img src="/assets/logo.png" alt="회사 로고">
-      </div>
-      <div class="titleblock">
-        <div class="title">직업 예측 AI</div>
-        <div class="subtitle">사용자의 의상과 액세서리를 보고 직업군을 유추합니다.</div>
-      </div>
-    </div>
+<body class="p-5 md:p-8">
+  <div class="max-w-6xl mx-auto space-y-5">
 
-    <!-- 웹캠 카드 -->
-    <div class="card">
-      <div class="row" style="justify-content:space-between">
-        <div class="row">
-          <span class="okdot" id="okDot"></span>
-          <span id="camStatus" class="meta">카메라 대기</span>
+    <!-- 헤더: 왼쪽 로고 / 오른쪽 제목·부제 -->
+    <header class="glass card-pad">
+      <div class="flex items-center justify-between gap-4 flex-wrap">
+        <div class="shrink-0">
+          <img src="/assets/logo.png" alt="로고" style="height:48px;object-fit:contain" />
         </div>
-        <div class="meta"><span id="liveFPS">—</span></div>
+        <div class="grow text-right">
+          <h1 class="heroTitle">직업 예측 AI</h1>
+          <p class="heroSub">울산세계미래산업박람회 | 2025.11.12-14</p>
+        </div>
       </div>
+    </header>
 
-      <div class="mediaShell" style="margin-top:10px">
+    <!-- 웹캠 -->
+    <section class="glass card-pad space-y-5">
+      <div class="mediaShell">
         <video id="video" autoplay playsinline muted></video>
         <canvas id="overlay"></canvas>
       </div>
-
-      <div class="row" style="margin-top:10px;justify-content:space-between">
-        <div class="row">
-          <button class="btn btn-sm" id="btnStart">웹캠 시작</button>
-          <button class="btn btn-sm" id="btnStop">웹캠 중지</button>
+      <div class="flex flex-wrap gap-3 justify-between">
+        <div class="flex gap-3">
+          <button class="btn btn-secondary btn-lg" id="btnStart">웹캠 시작</button>
+          <button class="btn btn-secondary btn-lg" id="btnStop">웹캠 중지</button>
         </div>
+        <button class="btn btn-primary btn-xl" id="btnInfer">직업 유추하기</button>
+      </div>
+    </section>
+
+    <!-- 예측 결과 -->
+    <section class="glass card-pad space-y-4">
+      <div class="flex items-center gap-2">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#ffffff" stroke-width="1.6"/><path d="M8 12h8M12 8v8" stroke="#ffffff" stroke-width="1.6"/></svg>
+        <div class="sectionTitle">예측 결과</div>
       </div>
 
-      <div style="margin-top:12px">
-        <button class="btn btn-lg" id="btnInfer">추론하기</button>
-      </div>
-    </div>
-
-    <!-- 결과 카드 -->
-    <div class="card stack" style="margin-top:16px">
-      <div class="row" style="justify-content:space-between;align-items:center">
-        <div style="flex:1 1 auto; min-width:200px">
-          <div class="meta">예측 직업</div>
-          <div id="predJob" class="top1">—</div>
-          <div class="chips" id="chipWrap" style="margin-top:8px"></div>
-        </div>
-        <div style="min-width:240px; max-width:320px">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
+        <!-- 좌: Top-3 + 도넛 -->
+        <div class="space-y-4 self-center">
+          <div id="topList" class="top-list body20"></div>
           <div class="donutWrap">
-            <canvas id="donut" width="140" height="140" aria-label="Top-3 donut"></canvas>
-            <div class="legend" id="legend"></div>
+            <canvas id="donut" width="340" height="340"></canvas>
           </div>
         </div>
+        <!-- 우: Segmentation -->
+        <div class="segFrame">
+          <img id="segPreview" alt="세그 오버레이" class="segImg" style="display:block" />
+        </div>
       </div>
-      <div>
-        <div class="meta" style="margin-bottom:6px" id="confText">—</div>
-        <div class="progress"><div class="bar" id="confBar"></div></div>
+    </section>
+
+    <!-- 스타일 추천 -->
+    <section class="glass card-pad space-y-3">
+      <div class="flex items-center gap-2">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M7 7a5 5 0 0 1 10 0v1h1a3 3 0 0 1 3 3v7h-3v-6a2 2 0 0 0-2-2h-2" stroke="#ffffff" stroke-width="1.6"/><path d="M10 8H8a2 2 0 0 0-2 2v8H3v-7a3 3 0 0 1 3-3h1" stroke="#ffffff" stroke-width="1.6"/></svg>
+        <div class="sectionTitle">스타일 추천</div>
       </div>
-    </div>
+      <div id="stylistBox" class="body20" style="white-space:pre-line"></div>
+    </section>
+
   </div>
 
   <!-- 로딩 오버레이 -->
-  <div id="loaderOverlay" aria-hidden="true">
-    <div class="loaderBox">
-      <div class="spinner"></div>
-      <div class="loaderText">분석 중…</div>
-      <div class="loaderSub">약 15초 정도 소요됩니다.</div>
+  <div id="loaderOverlay" aria-hidden="true" style="display:none;position:fixed;inset:0;z-index:999999;align-items:center;justify-content:center;background:rgba(8,12,24,.6);backdrop-filter:blur(2px)">
+    <div class="loaderBox" style="min-width:260px;padding:22px 24px;border-radius:16px;background:var(--panel);border:1px solid var(--panel-border);box-shadow:0 18px 80px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.05);text-align:center;color:#e8eefc">
+      <div class="spinner" style="width:44px;height:44px;margin:0 auto 12px;border-radius:50%;border:4px solid rgba(255,255,255,.2);border-top-color:#4ade80;animation:rot .9s linear infinite"></div>
+      <div class="loaderText" style="font-weight:900">분석 중…</div>
+      <div class="loaderSub" style="margin-top:4px;font-size:12px;color:#9aa4b2">약 15초 정도 소요됩니다.</div>
     </div>
   </div>
 
-  <script>
-    // ===== DOM =====
-    const video = document.getElementById('video');
-    const overlay = document.getElementById('overlay');
-    const ctx = overlay.getContext('2d');
-    const btnStart = document.getElementById('btnStart');
-    const btnStop  = document.getElementById('btnStop');
-    const btnInfer = document.getElementById('btnInfer');
+<script>
+  // ===== DOM =====
+  const video = document.getElementById('video');
+  const overlay = document.getElementById('overlay');
+  const ctx = overlay.getContext('2d');
+  const btnStart = document.getElementById('btnStart');
+  const btnStop  = document.getElementById('btnStop');
+  const btnInfer = document.getElementById('btnInfer');
 
-    const okDot = document.getElementById('okDot');
-    const camStatus = document.getElementById('camStatus');
-    const liveFPS = document.getElementById('liveFPS');
+  const segPreview = document.getElementById('segPreview');
+  const stylistBox = document.getElementById('stylistBox');
 
-    const predJob = document.getElementById('predJob');
-    const confBar = document.getElementById('confBar');
-    const confText = document.getElementById('confText');
+  const donutCanvas = document.getElementById('donut');
+  const donutCtx = donutCanvas.getContext('2d');
+  const topList = document.getElementById('topList');
 
-    const chipWrap = document.getElementById('chipWrap');
-    const donut = document.getElementById('donut');
-    const dctx = donut.getContext('2d');
-    const legend = document.getElementById('legend');
+  const loaderOverlay = document.getElementById('loaderOverlay');
 
-    const loaderOverlay = document.getElementById('loaderOverlay');
+  // ===== API =====
+  const BASE = location.origin;
+  const API_PRED_INLINE = BASE + "/api/v1/predict/inline";
+  const API_SEG_JSON    = BASE + "/api/v1/segment/json";
+  const API_VLM_JSON    = BASE + "/api/v1/vlm/json";
+  const API_STYLIST     = BASE + "/api/v1/stylist/json";
 
-    // ===== API =====
-    const BASE = location.origin;
-    const API_SEG_JSON    = BASE + "/api/v1/segment/json";      // 폴백
-    const API_VLM_JSON    = BASE + "/api/v1/vlm/json";          // 폴백
-    const API_PRED_INLINE = BASE + "/api/v1/predict/inline";    // 권장
+  // ===== State/Palette =====
+  let stream = null, running = false;
+  let currentPalette = ['#22d3ee','#4ade80','#94a3b8'];
+  const runState = { running: false, aborter: null };
 
-    // ===== State =====
-    let stream = null, running = false, lastTS = performance.now(), frames = 0;
-    const runState = { running:false, aborter:null };
+  function applyPalette(colors){
+    currentPalette = colors.slice(0,3);
+    document.documentElement.style.setProperty('--c1', currentPalette[0]);
+    document.documentElement.style.setProperty('--c2', currentPalette[1] || '#4ade80');
+    document.documentElement.style.setProperty('--c3', currentPalette[2] || '#94a3b8');
+  }
 
-    // ===== Helpers =====
-    const nextFrame = ()=>new Promise(res=>requestAnimationFrame(res));
+  // 현재 테마의 Top-1 색을 얻어 백엔드로 전달
+  function getThemeC1(){
+    const v = getComputedStyle(document.documentElement).getPropertyValue('--c1').trim();
+    return v || '#22d3ee';
+  }
 
-    function setStatus(text, ok=true){
-      camStatus.textContent=text;
-      okDot.style.background=ok?'#10b981':'#ef4444';
-      okDot.style.boxShadow=ok?'0 0 12px #10b981aa':'0 0 12px #ef4444aa';
+  // ===== Helpers =====
+  function syncOverlaySize(){ if(!video.videoWidth) return; overlay.width=video.videoWidth; overlay.height=video.videoHeight; }
+  function showLoader(on){ loaderOverlay.style.display = on ? 'flex' : 'none'; loaderOverlay.setAttribute('aria-hidden', on ? 'false':'true'); }
+
+  // ===== Webcam =====
+  async function startCamera(){
+    if(running) return;
+    try{
+      video.setAttribute('playsinline',''); video.setAttribute('autoplay',''); video.muted = true;
+      const constraints = { video:{facingMode:'user',width:{ideal:1280},height:{ideal:720}}, audio:false };
+      stream = await navigator.mediaDevices.getUserMedia(constraints);
+      video.srcObject = stream; await video.play();
+      running = true; syncOverlaySize();
+    }catch(e){
+      console.error('카메라 실패:', e);
     }
-    function percent(x){ return Math.max(0, Math.min(100, Math.round(x*100))); }
-    function syncOverlaySize(){
-      if(!video.videoWidth) return;
-      overlay.width  = video.videoWidth;
-      overlay.height = video.videoHeight;
-    }
-    function updateFPS(){
-      frames++;
-      const now=performance.now();
-      if(now-lastTS>=1000){ liveFPS.textContent=`${frames} FPS`; frames=0; lastTS=now; }
-    }
-    function showLoader(on){
-      loaderOverlay.style.display = on ? 'flex' : 'none';
-      loaderOverlay.setAttribute('aria-hidden', on ? 'false' : 'true');
-    }
+  }
+  function stopCamera(){
+    running=false;
+    try{ if(stream){ stream.getTracks().forEach(t=>t.stop()); } }catch{}
+    stream=null; try{ video.pause(); video.srcObject=null; }catch{}
+    ctx.clearRect(0,0,overlay.width,overlay.height);
+  }
 
-    function resetResults(){
-      predJob.textContent = '—';
-      confBar.style.width = '0%';
-      confText.textContent = '—';
-      chipWrap.innerHTML = '';
-      legend.innerHTML = '';
-      dctx.clearRect(0,0,donut.width,donut.height);
-      ctx.clearRect(0,0,overlay.width,overlay.height);
-    }
+  // ===== Stylist text =====
+  function renderStylistText(raw){
+    const safe = (raw || '').replace(/[\r\n]+/g, ' ').replace(/[“”"]/g, '');
+    const escaped = safe.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const parts = escaped.split(/(?<=\.|!|\?)\s+/);
+    const lines = parts.map(s => s.trim()).filter(Boolean);
+    stylistBox.innerHTML = lines.join('<br>');
+  }
 
-    // ----- robust prob/conf parser & label normalizer -----
-    function parseProb(x){
-      if (typeof x === 'string'){
-        const s = x.trim();
-        if (s.endsWith('%')) { const v = parseFloat(s.slice(0,-1)); return Number.isFinite(v) ? Math.max(0, Math.min(1, v/100)) : 0; }
-        const v = parseFloat(s); if (!Number.isFinite(v)) return 0;
-        return v > 1 && v <= 100 ? v/100 : Math.max(0, Math.min(1, v));
-      }
-      const n = Number(x); if (!Number.isFinite(n)) return 0;
-      return n > 1 && n <= 100 ? n/100 : Math.max(0, Math.min(1, n));
+  // ===== Donut =====
+  function drawDonut(top3){
+    const c = donutCanvas, g = donutCtx;
+    g.clearRect(0,0,c.width,c.height);
+    const cx=c.width/2, cy=c.height/2;
+    const base = Math.min(c.width,c.height);
+    const r = base * 0.35;
+    const w = base * 0.09;
+    const total = top3.reduce((a,b)=>a+b.prob,0) || 1;
+    let ang = -Math.PI/2;
+
+    top3.forEach((d,i)=>{
+      const col = currentPalette[i % currentPalette.length];
+      const a2 = ang + (d.prob/total)*Math.PI*2;
+      g.beginPath(); g.arc(cx,cy,r,ang,a2);
+      g.strokeStyle = col; g.lineWidth = w; g.lineCap='round'; g.stroke();
+      ang=a2;
+    });
+
+    g.fillStyle = currentPalette[0];
+    g.font = `900 ${Math.round(base*0.085)}px 'Noto Sans KR',sans-serif`;
+    g.textAlign="center"; g.textBaseline="middle";
+    g.fillText(`${Math.round((top3[0]?.prob||0)*100)}%`, cx, cy);
+
+    c.style.display = 'block';
+  }
+
+  // ===== Top-3 Renderer =====
+  function renderTop3(allSorted){
+    const top3 = allSorted.slice(0,3);
+    topList.innerHTML = '';
+    if (!top3.length) return;
+
+    applyPalette(['#22d3ee','#4ade80','#94a3b8']);
+
+    const t1 = document.createElement('div');
+    t1.className = 'top1';
+    t1.innerHTML = `<span>${top3[0].label}</span> <span class="pct">${Math.round(top3[0].prob*100)}%</span>`;
+    topList.appendChild(t1);
+
+    const row = document.createElement('div');
+    row.className = 'flex gap-2 flex-wrap';
+    for (let i=1;i<3;i++){
+      if(!top3[i]) continue;
+      const chip = document.createElement('div');
+      chip.className = 'chip';
+      const colorVar = i===1 ? 'var(--c2)' : 'var(--c3)';
+      chip.innerHTML = `<span>${top3[i].label}</span> <span style="color:${colorVar}">${Math.round(top3[i].prob*100)}%</span>`;
+      row.appendChild(chip);
     }
+    topList.appendChild(row);
+
+    drawDonut(top3);
+  }
+
+  // ===== Segmentation 스왑 로더 =====
+  function swapSegImage(url){
+    if(!url){ segPreview.style.opacity = 0; return; }
+    const cacheBusted = url + (url.includes('?') ? '&' : '?') + 't=' + Date.now();
+    const img = new Image();
+    img.onload = () => { segPreview.src = cacheBusted; segPreview.style.opacity = 1; };
+    img.onerror = () => { segPreview.style.opacity = 0; };
+    img.src = cacheBusted;
+  }
+
+  // ===== Render (VLM+Seg) =====
+  function parseProb(x){
+    if (typeof x === 'string'){
+      const s=x.trim(); if(s.endsWith('%')){ const v=parseFloat(s.slice(0,-1)); return Number.isFinite(v)?Math.max(0,Math.min(1,v/100)):0; }
+      const v=parseFloat(s); if(!Number.isFinite(v)) return 0; return v>1&&v<=100? v/100 : Math.max(0,Math.min(1,v));
+    }
+    const n=Number(x); if(!Number.isFinite(n)) return 0; return n>1&&n<=100? n/100 : Math.max(0,Math.min(1,n));
+  }
+
+  async function renderVLM(v){
+    const r = (v?.vlm?.result) ? v.vlm.result : (v?.result || {});
+    const rawCand = Array.isArray(r.candidates) ? r.candidates : [];
+    const candOnly = rawCand.map(d=>({label:d.job||'기타', prob:parseProb(d.prob)})).sort((a,b)=>b.prob-a.prob);
+
+    const topLabelFromTop = r.top_prediction?.job;
+    const topProbFromTop  = parseProb(r.top_prediction?.confidence);
+
+    let all = [];
     const norm = s => (s||'').toString().toLowerCase().replace(/\s+/g,'').replaceAll('/','');
-
-    // ===== Donut =====
-    function drawDonut(top3){
-      dctx.clearRect(0,0,donut.width,donut.height);
-      const cx = donut.width/2, cy = donut.height/2, r = Math.min(cx, cy) - 6;
-      const thickness = 22;
-      const colors = ['#4ade80','#22d3ee','#c084fc']; // 상위 1,2,3 고정 팔레트
-
-      const total = top3.reduce((a,b)=>a + b.prob, 0) || 1;
-      let start = -Math.PI/2;
-
-      top3.forEach((it, i)=>{
-        const ang = (it.prob/total) * Math.PI*2;
-        dctx.beginPath();
-        dctx.arc(cx, cy, r, start, start+ang);
-        dctx.arc(cx, cy, r-thickness, start+ang, start, true);
-        dctx.closePath();
-        dctx.fillStyle = colors[i % colors.length];
-        dctx.fill();
-        start += ang;
-      });
-
-      // 가운데 라벨(1위 %)
-      const p = Math.round((top3[0]?.prob || 0) * 100);
-      dctx.fillStyle = '#e8eefc';
-      dctx.font = '700 20px ui-sans-serif, system-ui, Segoe UI, Roboto';
-      dctx.textAlign = 'center';
-      dctx.textBaseline = 'middle';
-      dctx.fillText(`${p}%`, cx, cy);
-      
-      // 범례
-      legend.innerHTML = '';
-      top3.forEach((it,i)=>{
-        const row = document.createElement('div');
-        row.className = 'lg';
-        row.innerHTML = `<span class="dot" style="background:${colors[i%colors.length]}"></span>${it.label} (${Math.round(it.prob*100)}%)`;
-        legend.appendChild(row);
-      });
+    if (topLabelFromTop && Number.isFinite(topProbFromTop)){
+      all.push({label:topLabelFromTop, prob:topProbFromTop});
+      const key = norm(topLabelFromTop);
+      candOnly.forEach(c=>{ if(norm(c.label)!==key) all.push(c); });
+    }else{
+      all = candOnly.slice();
     }
 
-    function renderTop3(candSorted){
-      const top3 = candSorted.slice(0,3);
-      // 큰 타이틀
-      document.getElementById('predJob').textContent = top3[0] ? top3[0].label : '분류 실패';
-      // 칩(2,3위)
-      const chipWrap = document.getElementById('chipWrap');
-      chipWrap.innerHTML = '';
-      for (let i=1;i<3;i++){
-        if (!top3[i]) continue;
-        const chip = document.createElement('div');
-        chip.className = 'chip';
-        chip.innerHTML = `<b>${top3[i].label}</b>&nbsp;&nbsp;${Math.round(top3[i].prob*100)}%`;
-        chipWrap.appendChild(chip);
+    renderTop3(all);
+
+    const overlayUrl = v.overlay_url || v?._seg?.overlay_url || '';
+    swapSegImage(overlayUrl);
+
+    const top3 = all.slice(0,3).map(d=>d.label);
+    const evidence = Array.isArray(r.evidence) ? r.evidence : [];
+    try{
+      const res = await fetch(API_STYLIST, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ job: top3[0]||'', top3, evidence })
+      });
+      if(res.ok){
+        const sj = await res.json();
+        renderStylistText((sj?.text || '').trim());
+      }else{
+        stylistBox.textContent = '스타일 추천 생성 실패';
       }
-      // 도넛
-      if (top3.length) drawDonut(top3);
+    }catch(e){
+      console.error(e);
+      stylistBox.textContent = '스타일 추천 호출 오류';
     }
+  }
 
-    // ===== Overlay Draw =====
-    async function drawOverlayFromURL(url){
-      if(!url) return;
+  // ===== Backend Calls (★ meta.c1 포함) =====
+  async function callPredictInline(dataURL, signal){
+    const res = await fetch(API_PRED_INLINE, {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({ image:dataURL, meta:{ c1: getThemeC1() } }),
+      signal
+    });
+    if (res.status === 404) throw new Error("INLINE_404");
+    if (!res.ok) throw new Error(`INLINE ${res.status}`);
+    return res.json();
+  }
+  async function callLegacyTwoStep(dataURL, signal){
+    const segRes=await fetch(API_SEG_JSON,{
+      method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({ image:dataURL, meta:{ c1: getThemeC1() } }), signal
+    });
+    if(!segRes.ok) throw new Error(`SEG ${segRes.status}`);
+    const seg=await segRes.json();
+    const vlmRes=await fetch(API_VLM_JSON,{
+      method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({ cutout_url:seg.url }), signal
+    });
+    if(!vlmRes.ok) throw new Error(`VLM ${vlmRes.status}`);
+    const j=await vlmRes.json();
+    return { overlay_url: seg.overlay_url, cutout_url: seg.url, vlm: j, _seg: seg };
+  }
+
+  function nextPaint(){ return new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))); }
+  function blobToDataURL(blob){
+    return new Promise((resolve, reject) => {
+      const fr = new FileReader();
+      fr.onload = () => resolve(fr.result);
+      fr.onerror = reject;
+      fr.readAsDataURL(blob);
+    });
+  }
+
+  // ===== Pipeline =====
+  async function sendFrameJSON(){
+    if (runState.running && runState.aborter) { try{ runState.aborter.abort(); }catch(e){} }
+    topList.innerHTML = '';
+    donutCtx.clearRect(0,0,donutCanvas.width,donutCanvas.height);
+    donutCanvas.style.display = 'none';
+    stylistBox.textContent = '';
+    segPreview.style.opacity = 0;
+    ctx.clearRect(0,0,overlay.width,overlay.height);
+
+    btnInfer.disabled = true; btnInfer.textContent = '분석 중…'; showLoader(true);
+    await nextPaint();
+
+    runState.aborter = new AbortController(); runState.running = true;
+
+    try{
+      if(!video.videoWidth) throw new Error("no_frame");
+      const c=document.createElement('canvas'); c.width=video.videoWidth; c.height=video.videoHeight;
+      const cctx=c.getContext('2d'); cctx.translate(c.width,0); cctx.scale(-1,1); cctx.drawImage(video,0,0,c.width,c.height);
+
+      const blob = await new Promise(res => c.toBlob(res, 'image/png', 0.92));
+      if(!blob) throw new Error("capture_failed");
+      const dataURL = await blobToDataURL(blob);
+
+      let resp;
       try{
-        const img = new Image();
-        img.crossOrigin = "anonymous";
-        img.decoding = "async";
-        img.src = url.startsWith('http') ? url : (BASE + url);
-        await img.decode();
-        if (overlay.width !== img.width || overlay.height !== img.height){
-          overlay.width = img.width; overlay.height = img.height;
-        }
-        ctx.clearRect(0,0,overlay.width,overlay.height);
-        ctx.drawImage(img, 0, 0, overlay.width, overlay.height);
-      }catch(e){ console.warn('overlay draw failed:', e); }
-    }
-
-    // ===== Render VLM (Top-3 + conf bar) =====
-    function renderVLM(v){
-      const r = (v && v.result) ? v.result : {};
-      const rawCand = Array.isArray(r.candidates) ? r.candidates : [];
-
-      // 1) candidates 정규화/정렬
-      const candOnly = rawCand
-        .map(d => ({ label: d.job || '기타', prob: parseProb(d.prob) }))
-        .sort((a,b)=> b.prob - a.prob);
-
-      // 2) top_prediction 끌어오기
-      const topLabelFromTop = r.top_prediction?.job;
-      const topProbFromTop  = parseProb(r.top_prediction?.confidence);
-
-      // 3) 최종 Top-3 목록 만들기: [top_prediction] + candidates
-      let all = [];
-      if (topLabelFromTop && Number.isFinite(topProbFromTop)){
-        all.push({ label: topLabelFromTop, prob: topProbFromTop });
-        // 같은 라벨이 candidates에도 있으면 중복 제거
-        const topKey = norm(topLabelFromTop);
-        for (const c of candOnly){
-          if (norm(c.label) !== topKey) all.push(c);
-        }
-      } else {
-        // top_prediction이 없으면 candidates의 최상위를 top으로 사용
-        all = candOnly.slice();
-      }
-
-      // 4) 확신도(conf) 계산: top_prediction 우선, 없으면 all[0]
-      const conf = (Number.isFinite(topProbFromTop) && topProbFromTop>0) ? topProbFromTop
-                  : (all[0]?.prob || 0);
-
-      // 5) 그리기
-      renderTop3(all);
-      document.getElementById('confBar').style.width = `${Math.round(conf*100)}%`;
-      document.getElementById('confText').textContent = `${Math.round(conf*100)}%`;
-    }
-
-    // ===== Camera =====
-    async function startCamera(){
-      if(running) return;
-      try{
-        stream = await navigator.mediaDevices.getUserMedia({
-          video:{facingMode:'user',width:{ideal:1280},height:{ideal:720}},audio:false
-        });
-        video.srcObject = stream; await video.play();
-        running = true; syncOverlaySize(); setStatus('카메라 실행중');
-      }catch(e){ setStatus('카메라 접근 거부/오류', false); console.error(e); }
-    }
-    function stopCamera(){
-      running=false;
-      if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
-      ctx.clearRect(0,0,overlay.width,overlay.height);
-      setStatus('카메라 중지됨', false);
-    }
-
-    // ===== Backend Calls =====
-    async function callPredictInline(dataURL, signal){
-      const res = await fetch(API_PRED_INLINE, {
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({image:dataURL}),
-        signal
-      });
-      if (res.status === 404) throw new Error("INLINE_404");
-      if (!res.ok) throw new Error(`INLINE ${res.status}`);
-      return res.json(); // { ok, result, overlay_url? or seg:{overlay_url}? }
-    }
-
-    async function callLegacyTwoStep(dataURL, signal){
-      const segRes=await fetch(API_SEG_JSON,{
-        method:"POST",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({image:dataURL}), signal
-      });
-      if(!segRes.ok) throw new Error(`SEG ${segRes.status}`);
-      const seg=await segRes.json();
-
-      const vlmRes=await fetch(API_VLM_JSON,{
-        method:"POST",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({cutout_url:seg.url}), signal
-      });
-      if(!vlmRes.ok) throw new Error(`VLM ${vlmRes.status}`);
-      const vlm = await vlmRes.json();
-
-      return { vlm, seg };
-    }
-
-    // ===== Pipeline =====
-    async function sendFrameJSON(){
-      if (runState.running && runState.aborter) {
-        try { runState.aborter.abort(); } catch(e) {}
-      }
-      resetResults();
-      btnInfer.disabled = true;
-      btnInfer.textContent = '분석 중…';
-
-      showLoader(true);
-      await nextFrame(); // 로더 먼저 그리기
-
-      runState.aborter = new AbortController();
-      runState.running = true;
-
-      try{
-        if(!video.videoWidth){ throw new Error("no_frame"); }
-
-        // 캡처(미러)
-        const c=document.createElement('canvas');
-        c.width=video.videoWidth; c.height=video.videoHeight;
-        const cctx=c.getContext('2d');
-        cctx.translate(c.width,0); cctx.scale(-1,1);
-        cctx.drawImage(video,0,0,c.width,c.height);
-        const dataURL=c.toDataURL('image/png',0.92);
-
-        // 인라인 우선, 실패시 레거시
-        try{
-          const topLevel = await callPredictInline(dataURL, runState.aborter.signal);
-          const inlineOverlay = topLevel?.overlay_url || topLevel?.seg?.overlay_url;
-          if (inlineOverlay) await drawOverlayFromURL(inlineOverlay);
-          renderVLM(topLevel);
-        }catch(err){
-          if (err?.message === "INLINE_404"){
-            const { vlm, seg } = await callLegacyTwoStep(dataURL, runState.aborter.signal);
-            if (seg?.overlay_url) await drawOverlayFromURL(seg.overlay_url);
-            renderVLM(vlm);
-          }else{
-            throw err;
-          }
-        }
-
+        resp = await callPredictInline(dataURL, runState.aborter.signal);
       }catch(err){
-        if (err?.name !== 'AbortError') { console.error(err); predJob.textContent = '오류 발생'; }
-      }finally{
-        runState.running = false;
-        btnInfer.disabled = false;
-        btnInfer.textContent = '직업 유추하기';
-        showLoader(false);
+        if(err?.message==="INLINE_404"){ resp = await callLegacyTwoStep(dataURL, runState.aborter.signal); }
+        else{ throw err; }
       }
+      await renderVLM(resp);
+
+    }catch(err){
+      if (err?.name !== 'AbortError') { console.error(err); }
+    }finally{
+      runState.running = false; btnInfer.disabled=false; btnInfer.textContent='직업 유추하기'; showLoader(false);
     }
+  }
 
-    // ===== Events =====
-    btnStart.addEventListener('click', startCamera);
-    btnStop.addEventListener('click', stopCamera);
-    btnInfer.addEventListener('click', sendFrameJSON);
-    video.addEventListener('loadedmetadata', syncOverlaySize);
-    window.addEventListener('resize', syncOverlaySize);
-
-    // 자동 카메라 시작(가능 시)
-    (async()=>{ try{
-      const dev=await navigator.mediaDevices.enumerateDevices();
-      if(dev.some(d=>d.kind==='videoinput')) startCamera();
-    }catch(e){} })();
-
-    // 경량 FPS 루프
-    (function rafLoop(){ if(running) updateFPS(); requestAnimationFrame(rafLoop); })();
-  </script>
+  // ===== Events/Init =====
+  btnStart.addEventListener('click', startCamera);
+  btnStop .addEventListener('click', stopCamera);
+  btnInfer.addEventListener('click', sendFrameJSON);
+  video.addEventListener('loadedmetadata', syncOverlaySize);
+  window.addEventListener('resize', syncOverlaySize);
+  (async()=>{ try{ const dev=await navigator.mediaDevices.enumerateDevices(); if(dev.some(d=>d.kind==='videoinput')) startCamera(); }catch(e){} })();
+</script>
 </body>
 </html>
