@@ -20,7 +20,7 @@ from transformers import AutoProcessor, Qwen2VLForConditionalGeneration
 
 import yaml
 
-from prompts import get_vlm_prompt, get_system_prompt
+from prompts import get_vlm_prompt, get_system_prompt, reduce_to_top3
 
 
 def load_yaml_config() -> Dict[str, Any]:
@@ -554,6 +554,7 @@ def vlm_json(body: VLMJsonReq):
     prompt = get_vlm_prompt(lang)
     raw = qwen_infer(image, prompt, gen_cfg, lang=lang)
     parsed = parse_json_safely(raw)
+    parsed = reduce_to_top3(parsed)
     result_sorted = sort_candidates_only(parsed)
 
     return VLMRes(
@@ -586,6 +587,7 @@ async def vlm_file(file: UploadFile = File(...)):
     prompt = get_vlm_prompt(lang)
     raw_text = qwen_infer(image, prompt, gen_cfg, lang=lang)
     parsed = parse_json_safely(raw_text)
+    parsed = reduce_to_top3(parsed)
     result_sorted = sort_candidates_only(parsed)
 
     return VLMRes(
@@ -642,6 +644,7 @@ def predict_inline(body: InlineReq):
     prompt = get_vlm_prompt(lang)
     raw_text = qwen_infer(vlm_rgb, prompt, gen_cfg, lang=lang)
     parsed = parse_json_safely(raw_text)
+    parsed = reduce_to_top3(parsed)
     result_sorted = sort_candidates_only(parsed)
 
     return VLMRes(

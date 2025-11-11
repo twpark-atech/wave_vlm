@@ -17,7 +17,7 @@
     .wrap{max-width:900px;margin:28px auto;padding:0 16px}
     .muted{color:var(--muted);font-size:13px}
 
-    /* Top header bar (wrap 내부로 이동) */
+    /* Top header bar */
     .topbar{
       display:flex; align-items:center; justify-content:space-between; gap:18px;
       padding:12px 16px;
@@ -67,15 +67,48 @@
     .stack{display:grid;gap:12px}
     .meta{font-size:12px;color:var(--muted)}
 
-    .probRow{width:100%}
-    .probRail{height:8px;width:100%;border-radius:999px;background:rgba(255,255,255,.10);overflow:hidden}
-    .probFill{height:100%;background:rgba(255,255,255,.38)}
-    .probFill.top{background:linear-gradient(90deg,var(--accent),var(--accent2))}
+    /* Top-3 layout */
+    .top1{font-weight:900;font-size:22px;line-height:1.2}
+    .chips{display:flex; gap:8px; flex-wrap:wrap}
+    .chip{
+      background:rgba(255,255,255,.06); border:1px solid var(--border);
+      padding:6px 10px; border-radius:999px; font-size:12px; color:#cdd7ee
+    }
+    .chip b{color:#e8eefc}
+
+    /* Donut */
+    .donutWrap{display:flex; gap:16px; align-items:center; flex-wrap:wrap}
+    #donut{width:140px; height:140px}
+    .legend{display:grid; gap:6px}
+    .legend .lg{display:flex; align-items:center; gap:8px; font-size:12px; color:#cdd7ee}
+    .legend .dot{width:10px;height:10px;border-radius:50%}
+
+    /* Loader overlay */
+    #loaderOverlay{
+      position:fixed; inset:0; z-index:999999; display:none;
+      align-items:center; justify-content:center;
+      background: rgba(8,12,24,.6); backdrop-filter: blur(2px);
+    }
+    #loaderOverlay .loaderBox{
+      min-width:220px; padding:20px 22px; border-radius:14px;
+      background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.04));
+      border: 1px solid rgba(255,255,255,.12);
+      box-shadow: 0 18px 80px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.05);
+      text-align:center; color:#e8eefc;
+    }
+    #loaderOverlay .spinner{
+      width:42px; height:42px; margin:0 auto 12px; border-radius:50%;
+      border:4px solid rgba(255,255,255,.2); border-top-color:#4ade80;
+      animation: rot .9s linear infinite;
+    }
+    @keyframes rot{ to{ transform: rotate(360deg);} }
+    #loaderOverlay .loaderText{ font-weight:800; letter-spacing:.2px; }
+    #loaderOverlay .loaderSub{ margin-top:4px; font-size:12px; color:#9aa4b2; }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <!-- 동일 폭 헤더 -->
+    <!-- 상단 헤더 -->
     <div class="topbar">
       <div class="brand">
         <img src="/assets/logo.png" alt="회사 로고">
@@ -115,23 +148,35 @@
 
     <!-- 결과 카드 -->
     <div class="card stack" style="margin-top:16px">
-      <div class="row" style="justify-content:space-between;align-items:end">
-        <div>
+      <div class="row" style="justify-content:space-between;align-items:center">
+        <div style="flex:1 1 auto; min-width:200px">
           <div class="meta">예측 직업</div>
-          <div id="predJob" style="font-weight:900;font-size:22px;line-height:1.2">—</div>
+          <div id="predJob" class="top1">—</div>
+          <div class="chips" id="chipWrap" style="margin-top:8px"></div>
         </div>
-        <div style="min-width:210px">
-          <div class="meta" style="margin-bottom:6px" id="confText">—</div>
-          <div class="progress"><div class="bar" id="confBar"></div></div>
+        <div style="min-width:240px; max-width:320px">
+          <div class="donutWrap">
+            <canvas id="donut" width="140" height="140" aria-label="Top-3 donut"></canvas>
+            <div class="legend" id="legend"></div>
+          </div>
         </div>
       </div>
-
       <div>
-        <div class="meta" style="margin-bottom:6px"></div>
-        <div id="probsList" class="stack"></div>
+        <div class="meta" style="margin-bottom:6px" id="confText">—</div>
+        <div class="progress"><div class="bar" id="confBar"></div></div>
       </div>
     </div>
   </div>
+
+  <!-- 로딩 오버레이 -->
+  <div id="loaderOverlay" aria-hidden="true">
+    <div class="loaderBox">
+      <div class="spinner"></div>
+      <div class="loaderText">분석 중…</div>
+      <div class="loaderSub">약 15초 정도 소요됩니다.</div>
+    </div>
+  </div>
+
   <script>
     // ===== DOM =====
     const video = document.getElementById('video');
@@ -148,19 +193,27 @@
     const predJob = document.getElementById('predJob');
     const confBar = document.getElementById('confBar');
     const confText = document.getElementById('confText');
-    const probsList = document.getElementById('probsList');
+
+    const chipWrap = document.getElementById('chipWrap');
+    const donut = document.getElementById('donut');
+    const dctx = donut.getContext('2d');
+    const legend = document.getElementById('legend');
+
+    const loaderOverlay = document.getElementById('loaderOverlay');
 
     // ===== API =====
     const BASE = location.origin;
-    const API_SEG_JSON   = BASE + "/api/v1/segment/json";     // 폴백용
-    const API_VLM_JSON   = BASE + "/api/v1/vlm/json";         // 폴백용
-    const API_PRED_INLINE= BASE + "/api/v1/predict/inline";   // 신규(권장)
+    const API_SEG_JSON    = BASE + "/api/v1/segment/json";      // 폴백
+    const API_VLM_JSON    = BASE + "/api/v1/vlm/json";          // 폴백
+    const API_PRED_INLINE = BASE + "/api/v1/predict/inline";    // 권장
 
     // ===== State =====
     let stream = null, running = false, lastTS = performance.now(), frames = 0;
     const runState = { running:false, aborter:null };
 
     // ===== Helpers =====
+    const nextFrame = ()=>new Promise(res=>requestAnimationFrame(res));
+
     function setStatus(text, ok=true){
       camStatus.textContent=text;
       okDot.style.background=ok?'#10b981':'#ef4444';
@@ -177,28 +230,18 @@
       const now=performance.now();
       if(now-lastTS>=1000){ liveFPS.textContent=`${frames} FPS`; frames=0; lastTS=now; }
     }
-
-    function renderProbabilities(distArr){
-      probsList.innerHTML='';
-      if(!distArr.length) return;
-      const mx=Math.max(...distArr.map(d=>d.prob));
-      distArr.forEach(({label,prob})=>{
-        const pct = percent(prob);
-        const row=document.createElement('div'); row.className='probRow';
-        row.innerHTML = `
-          <div class="row" style="justify-content:space-between;font-size:12px;color:#cdd7ee;margin-bottom:4px">
-            <span>${label}</span><span>${pct}%</span>
-          </div>
-          <div class="probRail"><div class="probFill ${prob===mx?'top':''}" style="width:${pct}%"></div></div>`;
-        probsList.appendChild(row);
-      });
+    function showLoader(on){
+      loaderOverlay.style.display = on ? 'flex' : 'none';
+      loaderOverlay.setAttribute('aria-hidden', on ? 'false' : 'true');
     }
 
     function resetResults(){
       predJob.textContent = '—';
       confBar.style.width = '0%';
       confText.textContent = '—';
-      probsList.innerHTML = '';
+      chipWrap.innerHTML = '';
+      legend.innerHTML = '';
+      dctx.clearRect(0,0,donut.width,donut.height);
       ctx.clearRect(0,0,overlay.width,overlay.height);
     }
 
@@ -206,46 +249,125 @@
     function parseProb(x){
       if (typeof x === 'string'){
         const s = x.trim();
-        if (s.endsWith('%')) {
-          const v = parseFloat(s.slice(0,-1));
-          return Number.isFinite(v) ? Math.min(Math.max(v/100,0),1) : 0;
-        }
-        const v = parseFloat(s);
-        if (!Number.isFinite(v)) return 0;
-        return v > 1 && v <= 100 ? v/100 : Math.min(Math.max(v,0),1);
+        if (s.endsWith('%')) { const v = parseFloat(s.slice(0,-1)); return Number.isFinite(v) ? Math.max(0, Math.min(1, v/100)) : 0; }
+        const v = parseFloat(s); if (!Number.isFinite(v)) return 0;
+        return v > 1 && v <= 100 ? v/100 : Math.max(0, Math.min(1, v));
       }
-      const n = Number(x);
-      if (!Number.isFinite(n)) return 0;
-      return n > 1 && n <= 100 ? n/100 : Math.min(Math.max(n,0),1);
+      const n = Number(x); if (!Number.isFinite(n)) return 0;
+      return n > 1 && n <= 100 ? n/100 : Math.max(0, Math.min(1, n));
     }
     const norm = s => (s||'').toString().toLowerCase().replace(/\s+/g,'').replaceAll('/','');
 
-    // ===== Render VLM =====
+    // ===== Donut =====
+    function drawDonut(top3){
+      dctx.clearRect(0,0,donut.width,donut.height);
+      const cx = donut.width/2, cy = donut.height/2, r = Math.min(cx, cy) - 6;
+      const thickness = 22;
+      const colors = ['#4ade80','#22d3ee','#c084fc']; // 상위 1,2,3 고정 팔레트
+
+      const total = top3.reduce((a,b)=>a + b.prob, 0) || 1;
+      let start = -Math.PI/2;
+
+      top3.forEach((it, i)=>{
+        const ang = (it.prob/total) * Math.PI*2;
+        dctx.beginPath();
+        dctx.arc(cx, cy, r, start, start+ang);
+        dctx.arc(cx, cy, r-thickness, start+ang, start, true);
+        dctx.closePath();
+        dctx.fillStyle = colors[i % colors.length];
+        dctx.fill();
+        start += ang;
+      });
+
+      // 가운데 라벨(1위 %)
+      const p = Math.round((top3[0]?.prob || 0) * 100);
+      dctx.fillStyle = '#e8eefc';
+      dctx.font = '700 20px ui-sans-serif, system-ui, Segoe UI, Roboto';
+      dctx.textAlign = 'center';
+      dctx.textBaseline = 'middle';
+      dctx.fillText(`${p}%`, cx, cy);
+      
+      // 범례
+      legend.innerHTML = '';
+      top3.forEach((it,i)=>{
+        const row = document.createElement('div');
+        row.className = 'lg';
+        row.innerHTML = `<span class="dot" style="background:${colors[i%colors.length]}"></span>${it.label} (${Math.round(it.prob*100)}%)`;
+        legend.appendChild(row);
+      });
+    }
+
+    function renderTop3(candSorted){
+      const top3 = candSorted.slice(0,3);
+      // 큰 타이틀
+      document.getElementById('predJob').textContent = top3[0] ? top3[0].label : '분류 실패';
+      // 칩(2,3위)
+      const chipWrap = document.getElementById('chipWrap');
+      chipWrap.innerHTML = '';
+      for (let i=1;i<3;i++){
+        if (!top3[i]) continue;
+        const chip = document.createElement('div');
+        chip.className = 'chip';
+        chip.innerHTML = `<b>${top3[i].label}</b>&nbsp;&nbsp;${Math.round(top3[i].prob*100)}%`;
+        chipWrap.appendChild(chip);
+      }
+      // 도넛
+      if (top3.length) drawDonut(top3);
+    }
+
+    // ===== Overlay Draw =====
+    async function drawOverlayFromURL(url){
+      if(!url) return;
+      try{
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.decoding = "async";
+        img.src = url.startsWith('http') ? url : (BASE + url);
+        await img.decode();
+        if (overlay.width !== img.width || overlay.height !== img.height){
+          overlay.width = img.width; overlay.height = img.height;
+        }
+        ctx.clearRect(0,0,overlay.width,overlay.height);
+        ctx.drawImage(img, 0, 0, overlay.width, overlay.height);
+      }catch(e){ console.warn('overlay draw failed:', e); }
+    }
+
+    // ===== Render VLM (Top-3 + conf bar) =====
     function renderVLM(v){
       const r = (v && v.result) ? v.result : {};
       const rawCand = Array.isArray(r.candidates) ? r.candidates : [];
 
-      const cand = rawCand
+      // 1) candidates 정규화/정렬
+      const candOnly = rawCand
         .map(d => ({ label: d.job || '기타', prob: parseProb(d.prob) }))
         .sort((a,b)=> b.prob - a.prob);
 
-      const topJob = (r.top_prediction && r.top_prediction.job) ? r.top_prediction.job
-                    : (cand[0]?.label ?? '분류 실패');
+      // 2) top_prediction 끌어오기
+      const topLabelFromTop = r.top_prediction?.job;
+      const topProbFromTop  = parseProb(r.top_prediction?.confidence);
 
-      // confidence 우선순위: top.confidence → 같은 레이블 candidate → 후보 최대값
-      let conf = (r.top_prediction && 'confidence' in r.top_prediction)
-                  ? parseProb(r.top_prediction.confidence) : 0;
-
-      if (!conf && cand.length){
-        const match = cand.find(c => norm(c.label) === norm(topJob));
-        conf = match ? match.prob : cand[0].prob;
+      // 3) 최종 Top-3 목록 만들기: [top_prediction] + candidates
+      let all = [];
+      if (topLabelFromTop && Number.isFinite(topProbFromTop)){
+        all.push({ label: topLabelFromTop, prob: topProbFromTop });
+        // 같은 라벨이 candidates에도 있으면 중복 제거
+        const topKey = norm(topLabelFromTop);
+        for (const c of candOnly){
+          if (norm(c.label) !== topKey) all.push(c);
+        }
+      } else {
+        // top_prediction이 없으면 candidates의 최상위를 top으로 사용
+        all = candOnly.slice();
       }
 
-      predJob.textContent = topJob;
-      confBar.style.width = `${percent(conf)}%`;
-      confText.textContent = `${percent(conf)}%`;
+      // 4) 확신도(conf) 계산: top_prediction 우선, 없으면 all[0]
+      const conf = (Number.isFinite(topProbFromTop) && topProbFromTop>0) ? topProbFromTop
+                  : (all[0]?.prob || 0);
 
-      renderProbabilities(cand);
+      // 5) 그리기
+      renderTop3(all);
+      document.getElementById('confBar').style.width = `${Math.round(conf*100)}%`;
+      document.getElementById('confText').textContent = `${Math.round(conf*100)}%`;
     }
 
     // ===== Camera =====
@@ -266,22 +388,20 @@
       setStatus('카메라 중지됨', false);
     }
 
-    // ===== Pipeline =====
+    // ===== Backend Calls =====
     async function callPredictInline(dataURL, signal){
-      // 권장 경로: 한 번에 세그→VLM
       const res = await fetch(API_PRED_INLINE, {
         method:"POST",
         headers:{"Content-Type":"application/json"},
         body:JSON.stringify({image:dataURL}),
         signal
       });
-      if (res.status === 404) throw new Error("INLINE_404"); // 서버 구버전일 수 있음
+      if (res.status === 404) throw new Error("INLINE_404");
       if (!res.ok) throw new Error(`INLINE ${res.status}`);
-      return res.json();
+      return res.json(); // { ok, result, overlay_url? or seg:{overlay_url}? }
     }
 
     async function callLegacyTwoStep(dataURL, signal){
-      // 폴백: 세그먼트 → VLM (기존 저장형)
       const segRes=await fetch(API_SEG_JSON,{
         method:"POST",headers:{"Content-Type":"application/json"},
         body:JSON.stringify({image:dataURL}), signal
@@ -294,17 +414,23 @@
         body:JSON.stringify({cutout_url:seg.url}), signal
       });
       if(!vlmRes.ok) throw new Error(`VLM ${vlmRes.status}`);
-      return vlmRes.json();
+      const vlm = await vlmRes.json();
+
+      return { vlm, seg };
     }
 
+    // ===== Pipeline =====
     async function sendFrameJSON(){
-      // 중복 실행 시 이전 요청 취소
       if (runState.running && runState.aborter) {
         try { runState.aborter.abort(); } catch(e) {}
       }
       resetResults();
       btnInfer.disabled = true;
       btnInfer.textContent = '분석 중…';
+
+      showLoader(true);
+      await nextFrame(); // 로더 먼저 그리기
+
       runState.aborter = new AbortController();
       runState.running = true;
 
@@ -319,29 +445,29 @@
         cctx.drawImage(video,0,0,c.width,c.height);
         const dataURL=c.toDataURL('image/png',0.92);
 
-        let j;
+        // 인라인 우선, 실패시 레거시
         try{
-          // 1) 신규 경로 시도
-          j = await callPredictInline(dataURL, runState.aborter.signal);
+          const topLevel = await callPredictInline(dataURL, runState.aborter.signal);
+          const inlineOverlay = topLevel?.overlay_url || topLevel?.seg?.overlay_url;
+          if (inlineOverlay) await drawOverlayFromURL(inlineOverlay);
+          renderVLM(topLevel);
         }catch(err){
           if (err?.message === "INLINE_404"){
-            // 2) 구버전 서버면 폴백
-            j = await callLegacyTwoStep(dataURL, runState.aborter.signal);
+            const { vlm, seg } = await callLegacyTwoStep(dataURL, runState.aborter.signal);
+            if (seg?.overlay_url) await drawOverlayFromURL(seg.overlay_url);
+            renderVLM(vlm);
           }else{
             throw err;
           }
         }
-        renderVLM(j);
 
       }catch(err){
-        if (err?.name !== 'AbortError') {
-          console.error(err);
-          predJob.textContent = '오류 발생';
-        }
+        if (err?.name !== 'AbortError') { console.error(err); predJob.textContent = '오류 발생'; }
       }finally{
         runState.running = false;
         btnInfer.disabled = false;
-        btnInfer.textContent = '추론하기';
+        btnInfer.textContent = '직업 유추하기';
+        showLoader(false);
       }
     }
 

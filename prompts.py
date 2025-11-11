@@ -1,5 +1,4 @@
 # prompts.py
-
 import json
 
 CATEGORIES = [
@@ -154,7 +153,7 @@ SCHEMA = r"""
 PROMPT_RULES = """
 규칙:
 1) 아래 21개 카테고리만 사용하고, 철자/띄어쓰기를 정확히 맞추세요. 새 라벨을 만들지 마세요.
-2) candidates 배열에는 21개 항목이 모두 포함되어야 하며, prob 합은 반드시 1.0이 되도록 하세요.
+2) 아래 21개 카테고리 중에서 상위 3개만 선택하여 candidates 배열에 넣으세요. (정확히 3개)
 3) 확신이 낮더라도 소수의 상위 후보에만 과도하게 몰지 말고, 나머지에도 소량의 꼬리 확률을 유지하세요.
 4) 각 prob는 최소 0.005 이상, 최대 0.90 이하로 설정하세요. (어떤 클래스도 1.0 금지)
 5) top_prediction.confidence는 해당 top 후보의 prob와 동일하게 하세요.
@@ -202,3 +201,38 @@ def get_system_prompt(lang: str = "ko") -> str:
         "키 이름과 직업 카테고리 명칭도 전부 한국어를 사용하세요. "
         "설명 문장이나 주석 없이 JSON만 출력하세요."
     )
+
+def reduce_to_top3(parsed: dict) -> dict:
+    """
+    parsed(JSON dict)에서 candidates를 prob 내림차순 상위 3개만 남기고,
+    top_prediction과 confidence를 candidates[0] 기준으로 재설정한다.
+    prob 합이 1.0이 되도록 재정규화한다.
+    """
+    try:
+        cands = parsed.get("candidates") or []
+        # 숫자형 prob만 남기고 정렬
+        clean = []
+        for it in cands:
+            job = it.get("job")
+            p = it.get("prob", 0)
+            try:
+                pv = float(str(p).strip().rstrip("%"))  # 문자열이면 처리
+            except Exception:
+                pv = 0.0
+            # 퍼센트 표기 방지: 1.0 초과면 0~1 스케일로 가정하지 않고 그대로 둔다
+            if pv > 1.0:
+                pv = pv / 100.0
+            clean.append({"job": job, "prob": max(0.0, pv)})
+
+        clean.sort(key=lambda x: x["prob"], reverse=True)
+        top3 = clean[:3] if len(clean) >= 3 else clean
+
+        s = sum(x["prob"] for x in top3) or 1.0
+        top3 = [{"job": x["job"], "prob": (x["prob"] / s)} for x in top3]
+
+        if top3:
+            parsed["top_prediction"] = {"job": top3[0]["job"], "confidence": top3[0]["prob"]}
+        parsed["candidates"] = top3
+        return parsed
+    except Exception:
+        return parsed
