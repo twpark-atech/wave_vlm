@@ -17,7 +17,7 @@ pip install -r requirements.txt
 
 ### 4. 서버 실행
 ```bash
-uvicorn app:app --host 0.0.0.0 --port 8000 --reload
+uvicorn app:app --host 0.0.0.0 --port 8000
 ```
 
 ### 5. 페이지 접속
